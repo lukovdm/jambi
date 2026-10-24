@@ -1,7 +1,7 @@
-"""Two-player, two-pawn 'Mens erger je niet' (Ludo) on a shared ring of L squares.
+"""Two-player 'Mens erger je niet' (Ludo) with N pawns each on a shared ring of L squares.
 
 Player A (us) chooses which pawn to move; player B follows a fixed policy
-(move its most advanced legal pawn). A 6 is needed to enter and gives
+(move its most advanced legal pawn, the lowest index on a tie). A 6 is needed to enter and gives
 another turn; landing on an opponent's pawn sends it back to base; own pawns
 block. Positions are relative to each player's start: 0 = base, 1..L = ring,
 L+1 = finished. B's start square is opposite A's.
@@ -10,13 +10,13 @@ from janitrace import (Model, Int, action, properties, choose, guard, uniform,
                        minimum, ite, Pmax, Pmin, F, V)
 
 
-def make_ludo(L=12):
+def make_ludo(L=12, N=2):
     FIN = L + 1                                    # position of a finished pawn
     H = L // 2                                     # offset between A's and B's start
 
     class Ludo(Model):
-        a = [Int(0, FIN, init=0), Int(0, FIN, init=0)]   # our pawns
-        b = [Int(0, FIN, init=0), Int(0, FIN, init=0)]   # opponent's pawns
+        a = [Int(0, FIN, init=0) for _ in range(N)]      # our pawns
+        b = [Int(0, FIN, init=0) for _ in range(N)]      # opponent's pawns
         turn = Int(0, 1, init=0)                   # 0 = A, 1 = B
         die = Int(0, 6, init=0)                    # 0 = not rolled yet
 
@@ -30,14 +30,15 @@ def make_ludo(L=12):
         def target(s, mine, k):
             """New position of pawn mine[k], or None if it cannot move."""
             p = mine[k]
+            others = [mine[j] for j in range(N) if j != k]
             if p == 0:
-                if s.die == 6 and mine[1 - k] != 1:
+                if s.die == 6 and all(q != 1 for q in others):
                     return 1
                 return None
             if p == FIN:
                 return None
             np = minimum(p + s.die, FIN)
-            if np != FIN and mine[1 - k] == np:
+            if np != FIN and any(q == np for q in others):
                 return None                        # blocked by own pawn
             return np
 
@@ -45,7 +46,7 @@ def make_ludo(L=12):
             mine[k] = np
             if np != FIN:
                 sq = Ludo.other_view(np)
-                for j in range(2):
+                for j in range(N):
                     if opp[j] == sq:
                         opp[j] = 0                 # captured
             Ludo.end_turn(s)
@@ -56,10 +57,10 @@ def make_ludo(L=12):
             s.die = 0
 
         def stuck(s, mine):
-            return Ludo.target(s, mine, 0) is None and Ludo.target(s, mine, 1) is None
+            return all(Ludo.target(s, mine, k) is None for k in range(N))
 
         def over(s):
-            return (s.a[0] == FIN and s.a[1] == FIN) or (s.b[0] == FIN and s.b[1] == FIN)
+            return all(p == FIN for p in s.a) or all(p == FIN for p in s.b)
 
         # Actions
 
@@ -71,7 +72,7 @@ def make_ludo(L=12):
         @action
         def move_a(s):                             # nondeterministic: our choice
             guard(s.turn == 0 and s.die > 0)
-            k = choose(2)
+            k = choose(N)
             np = Ludo.target(s, s.a, k)
             guard(np is not None)
             Ludo.move(s, s.a, s.b, k, np)
@@ -84,12 +85,13 @@ def make_ludo(L=12):
         @action
         def move_b(s):                             # fixed opponent policy
             guard(s.turn == 1 and s.die > 0)
-            t0, t1 = Ludo.target(s, s.b, 0), Ludo.target(s, s.b, 1)
-            guard(t0 is not None or t1 is not None)
-            if t0 is not None and (t1 is None or s.b[0] >= s.b[1]):
-                Ludo.move(s, s.b, s.a, 0, t0)
-            else:
-                Ludo.move(s, s.b, s.a, 1, t1)
+            ts = [Ludo.target(s, s.b, k) for k in range(N)]
+            guard(any(t is not None for t in ts))
+            best = None                            # most advanced pawn that can move
+            for k in range(N):
+                if ts[k] is not None and (best is None or s.b[k] > s.b[best]):
+                    best = k
+            Ludo.move(s, s.b, s.a, best, ts[best])
 
         @action
         def pass_b(s):
@@ -102,7 +104,9 @@ def make_ludo(L=12):
 
         @properties
         def props():
-            a_wins = (V.a[0] == FIN) & (V.a[1] == FIN)
+            a_wins = V.a[0] == FIN
+            for k in range(1, N):
+                a_wins = a_wins & (V.a[k] == FIN)
             return {"win_max": Pmax(F(a_wins)), "win_min": Pmin(F(a_wins))}
 
     return Ludo
