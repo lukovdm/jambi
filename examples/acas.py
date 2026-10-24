@@ -7,7 +7,7 @@ probabilistically (faster for a repeated advisory), the intruder randomly
 changes its lateral rate. Rewards count alerts and sense reversals;
 optionally at most B steps may carry an advisory. NMAC = |dy| <= 1 when tau reaches 0.
 """
-from janitrace import (Model, Int, Bool, Reward, action, flip, choose, guard, reward,
+from janitrace import (Model, Int, Bool, Reward, action, properties, flip, choose, guard, reward,
                        minimum, maximum, Pmax, Pmin, Emin, F, V)
 
 COC, WL, SL, WR, SR = range(5)
@@ -24,6 +24,8 @@ def make_acas(T=30, D=16, B=None, advisories=True):
         nmac = Bool(init=False)
         alert = Reward()                 # +1 per step with an advisory
         reversal = Reward()              # +1 when the advisory flips left <-> right
+        if B is not None:
+            alerts = Int(0, B, init=0)   # alerting budget: steps with an advisory
 
         @action
         def fly(s):
@@ -59,16 +61,17 @@ def make_acas(T=30, D=16, B=None, advisories=True):
         def done(s):                                 # absorbing after closest approach
             guard(s.tau == 0)
 
-    if B is not None:
-        Acas.alerts = Int(0, B, init=0)  # alerting budget: steps with an advisory
-    props = {"nmac_min": Pmin(F(V.nmac)), "nmac_max": Pmax(F(V.nmac)),
-             "alerts_min": Emin("alert", V.tau == 0)}
-    return Acas, props
+        @properties
+        def props():
+            return {"nmac_min": Pmin(F(V.nmac)), "nmac_max": Pmax(F(V.nmac)),
+                    "alerts_min": Emin("alert", V.tau == 0)}
+
+    return Acas
 
 
 if __name__ == "__main__":
     from janitrace.storm import check
     for B in (0, 1, 2, 4):
-        M, props = make_acas(T=20, D=16, B=B)
-        v = check(M, {"nmac_min": props["nmac_min"]}, simplify=True)
+        M = make_acas(T=20, D=16, B=B)
+        v = check(M, {"nmac_min": M.all_properties()["nmac_min"]}, simplify=True)
         print(f"alert budget {B}: minimal NMAC probability {v['nmac_min']:.6f}")

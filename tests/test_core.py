@@ -4,7 +4,7 @@ from fractions import Fraction
 
 import pytest
 
-from janitrace import (Model, Int, Bool, Reward, ModelError, V, action, choose, flip,
+from janitrace import (Model, Int, Bool, Reward, ModelError, V, action, properties, choose, flip,
                        guard, reward, uniform, simulate, to_jani, Pmax, F)
 from janitrace.core import Expr
 
@@ -172,6 +172,17 @@ def test_properties():
     assert p["name"] == "reach"
     assert p["expression"]["values"]["op"] == "Pmax"
     assert p["expression"]["values"]["exp"]["step-bounds"] == {"upper": 5}
+
+
+def test_class_properties_are_the_default():
+    class WithProps(Coin):
+        @properties
+        def props():
+            return {"reach": Pmax(F(V.x == 3))}
+
+    assert [p["name"] for p in to_jani(WithProps)["properties"]] == ["reach"]
+    assert to_jani(WithProps, {})["properties"] == []      # explicit argument wins
+    assert to_jani(Coin)["properties"] == []
 
 
 def test_simulate_runs_same_code():

@@ -1,7 +1,7 @@
 """Quick start: a server queue whose scheduler picks fast or slow service."""
 import random
 
-from janitrace import (Model, Int, Bool, action, flip, choose, guard, simulate,
+from janitrace import (Model, Int, Bool, action, properties, flip, choose, guard, simulate,
                        write_jani, Pmax, Pmin, F, V)
 
 CAP = 10
@@ -28,18 +28,18 @@ class Server(Model):
         if flip(0.25):
             s.broken = False
 
+    @properties
+    def props():
+        return {"overflow_max": Pmax(F(V.n == CAP, steps=40)),
+                "overflow_min": Pmin(F(V.n == CAP, steps=40))}
 
-PROPS = {
-    "overflow_max": Pmax(F(V.n == CAP, steps=40)),
-    "overflow_min": Pmin(F(V.n == CAP, steps=40)),
-}
 
 if __name__ == "__main__":
-    j = write_jani("server.jani", Server, PROPS, simplify=True)
+    j = write_jani("server.jani", Server, simplify=True)
     print("wrote server.jani with", len(j["automata"][0]["edges"]), "edges")
     print("a concrete run:", [st["n"] for st in simulate(Server, 15, random.Random(0))])
     try:
         from janitrace.storm import check
-        print(check(Server, PROPS))      # overflow_max ~ 0.156506, overflow_min ~ 6.98e-07
+        print(check(Server))      # overflow_max ~ 0.156506, overflow_min ~ 6.98e-07
     except ImportError:
         print("install stormpy to model-check")

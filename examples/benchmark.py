@@ -29,7 +29,8 @@ def value(model, prop):
     return r.get_value(s) if hasattr(r, "get_value") else r.at(s)
 
 
-def bench(M, props):
+def bench(M, props=None):
+    props = M.all_properties() if props is None else props
     for simplify in (False, True):
         stats = {}
         j, tc = timed(lambda: to_jani(M, props, simplify=simplify, stats=stats))
@@ -48,11 +49,11 @@ if __name__ == "__main__":
     which, args = sys.argv[1], list(map(int, sys.argv[2:]))
     if which == "ludo":
         from ludo import make_ludo
-        bench(*make_ludo(*args))
+        bench(make_ludo(*args))
     elif which == "acas":
         from acas import make_acas
-        M, p = make_acas(*args)
-        bench(M, {k: p[k] for k in ("nmac_min", "nmac_max")})
+        M = make_acas(*args)
+        bench(M, {k: M.all_properties()[k] for k in ("nmac_min", "nmac_max")})
     else:
         from queues import make_farm
-        bench(*make_farm(*args))
+        bench(make_farm(*args))

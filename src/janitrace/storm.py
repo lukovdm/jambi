@@ -7,6 +7,7 @@ from .core import to_jani
 def build(model_cls, properties=None, simplify=False):
     """Compile, parse and build the model with Storm's sparse engine.
 
+    properties defaults to the model's @properties functions.
     Returns (storm model, list of stormpy properties in the order given)."""
     import stormpy
     j = to_jani(model_cls, properties, simplify=simplify)
@@ -14,9 +15,13 @@ def build(model_cls, properties=None, simplify=False):
     return stormpy.build_model(jani, props), props
 
 
-def check(model_cls, properties, simplify=False):
-    """Model-check every property; returns {name: value in the initial state}."""
+def check(model_cls, properties=None, simplify=False):
+    """Model-check every property; returns {name: value in the initial state}.
+
+    properties defaults to the model's @properties functions."""
     import stormpy
+    if properties is None:
+        properties = model_cls.all_properties()
     model, props = build(model_cls, properties, simplify)
     init = model.initial_states[0]
     values = {}

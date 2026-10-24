@@ -1,6 +1,6 @@
 """K queues as a list of state variables: a nondeterministic dispatcher,
 and a round-robin server that indexes the list with a state variable."""
-from janitrace import Model, Int, action, flip, choose, Pmax, Pmin, F, V
+from janitrace import Model, Int, action, properties, flip, choose, Pmax, Pmin, F, V
 
 
 def any_full(K, C):
@@ -24,8 +24,12 @@ def make_farm(K, C):
                 if flip(0.25) and s.q[i] > 0:
                     s.q[i] -= 1
 
-    goal = any_full(K, C)
-    return Farm, {"pmax": Pmax(F(goal, steps=30)), "pmin": Pmin(F(goal, steps=30))}
+        @properties
+        def props():
+            goal = any_full(K, C)
+            return {"pmax": Pmax(F(goal, steps=30)), "pmin": Pmin(F(goal, steps=30))}
+
+    return Farm
 
 
 def make_round_robin(K, C):
@@ -43,8 +47,12 @@ def make_round_robin(K, C):
                 s.q[s.ptr] -= 1
             s.ptr = (s.ptr + 1) % K
 
-    goal = any_full(K, C)
-    return RoundRobin, {"pmax": Pmax(F(goal, steps=30)), "pmin": Pmin(F(goal, steps=30))}
+        @properties
+        def props():
+            goal = any_full(K, C)
+            return {"pmax": Pmax(F(goal, steps=30)), "pmin": Pmin(F(goal, steps=30))}
+
+    return RoundRobin
 
 
 if __name__ == "__main__":
@@ -52,7 +60,6 @@ if __name__ == "__main__":
     from janitrace import simulate
     from janitrace.storm import check
     for make in (make_farm, make_round_robin):
-        M, props = make(3, 5)
-        print(make.__name__, check(M, props, simplify=True))
-    M, _ = make_round_robin(3, 5)
+        print(make.__name__, check(make(3, 5), simplify=True))
+    M = make_round_robin(3, 5)
     print("a concrete run:", [st for st in simulate(M, 5, random.Random(1))])

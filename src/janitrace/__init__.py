@@ -9,7 +9,7 @@ concretely (see `simulate`), so models can be unit-tested and simulated.
 """
 from .core import (
     Bool, Expr, Int, Model, ModelError, Reward, V,
-    action, choose, flip, guard, ite, maximum, minimum, reward, uniform,
+    action, choose, flip, guard, ite, maximum, minimum, properties, reward, uniform,
     Emax, Emin, F, Pmax, Pmin,
     simulate, to_jani, write_jani,
 )
@@ -18,7 +18,8 @@ __version__ = "0.1.0"
 
 __all__ = [
     "Bool", "Expr", "Int", "Model", "ModelError", "Reward", "V",
-    "action", "choose", "flip", "guard", "ite", "maximum", "minimum", "reward", "uniform",
+    "action", "choose", "flip", "guard", "ite", "maximum", "minimum", "properties",
+    "reward", "uniform",
     "Emax", "Emin", "F", "Pmax", "Pmin",
     "simulate", "to_jani", "write_jani",
 ]

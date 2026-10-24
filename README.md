@@ -13,7 +13,7 @@ tracing. The same function also runs on concrete values, so a model can be
 simulated and unit-tested with exactly the code that gets verified.
 
 ```python
-from janitrace import Model, Int, Bool, action, flip, choose, guard, Pmax, F, V, write_jani
+from janitrace import Model, Int, Bool, action, properties, flip, choose, guard, Pmax, F, V, write_jani
 
 class Server(Model):
     n = Int(0, 10, init=0)
@@ -36,7 +36,11 @@ class Server(Model):
         if flip(0.25):
             s.broken = False
 
-write_jani("server.jani", Server, {"overflow": Pmax(F(V.n == 10, steps=40))})
+    @properties
+    def props():
+        return {"overflow": Pmax(F(V.n == 10, steps=40))}
+
+write_jani("server.jani", Server)
 ```
 
 ## Install
@@ -62,6 +66,8 @@ Requires Python 3.10+.
 | `reward("name", v)` with `name = Reward()` | earn `v` on reward structure `name` in this step |
 | `ite`, `minimum`, `maximum` | branch-free expressions |
 | `Pmin`, `Pmax`, `F(target, steps=k)`, `Emin`, `Emax` | properties; refer to variables as `V.x` or `V.q[i]` |
+| `@properties def props(): return {"name": Pmax(...)}` | the model's properties, used by `to_jani`, `write_jani` and `check` unless others are passed |
+| a function without `@action` | a helper, called as `ModelName.helper(s, ...)` from the actions |
 
 A plain Python `if` on a symbolic value is allowed: janitrace explores both
 branches by re-running the function. Indexing a list with a state variable
@@ -79,7 +85,7 @@ Violations raise `ModelError` while compiling.
 
 ## Z3 simplification (optional)
 
-`to_jani(Model, props, simplify=True)` uses Z3 to:
+`to_jani(Model, simplify=True)` uses Z3 to:
 
 - skip branches whose condition is already implied or contradicted by the
   variable bounds and the current path;
@@ -97,8 +103,9 @@ build from about 11 s to 0.6 s. For arithmetic-heavy models it changes little.
 
 ```python
 from janitrace.storm import check
-check(Server, {"overflow": Pmax(F(V.n == 10, steps=40))}, simplify=True)
+check(Server, simplify=True)
 # {'overflow': 0.1565...}
+check(Server, {"long": Pmax(F(V.n == 10, steps=80))})   # other properties
 ```
 
 Or write the file with `write_jani` and use the Storm command line:
@@ -112,7 +119,7 @@ Or write the file with `write_jani` and use the Storm command line:
 - `examples/acas.py`: an ACAS Xu-flavoured collision avoidance MDP with alert
   rewards and an optional alert budget.
 - `examples/ludo.py`: a two-player, two-pawn "Mens erger je niet" game against
-  a fixed opponent policy.
+  a fixed opponent policy, with the game logic as helpers inside the model.
 - `examples/benchmark.py`: plain against Z3-simplified compilation, with Storm
   build times and bisimulation.
 

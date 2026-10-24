@@ -127,6 +127,15 @@ def action(fn):
     return fn
 
 
+def properties(fn):
+    """Mark a model function that returns {name: property expression}.
+
+    It takes no arguments; to_jani/write_jani/check use its properties when
+    none are passed explicitly."""
+    fn._is_properties = True
+    return fn
+
+
 class Model:
     @classmethod
     def variables(cls):
@@ -155,6 +164,16 @@ class Model:
             for k, v in vars(klass).items():
                 if isinstance(v, Reward):
                     out[k] = v
+        return out
+
+    @classmethod
+    def all_properties(cls):
+        """The properties of every @properties function, merged in MRO order."""
+        out = {}
+        for klass in reversed(cls.__mro__):
+            for v in vars(klass).values():
+                if getattr(v, "_is_properties", False):
+                    out.update(v())
         return out
 
     @classmethod
@@ -448,11 +467,14 @@ def _edges_for(name, fn, var_names, oracle=None, stats=None, lists=None):
 def to_jani(model_cls, properties=None, simplify=False, stats=None):
     """Compile a Model subclass to a JANI model (a dict ready for json.dump).
 
-    properties: {name: property expression}, built with Pmin/Pmax/Emin/Emax.
+    properties: {name: property expression}, built with Pmin/Pmax/Emin/Emax;
+    defaults to the model's @properties functions.
     simplify=True uses Z3 (see simplify.py) to prune infeasible branches
     while tracing, normalise expressions, merge equal destinations and
     check bounds and probability sums.
     stats: optional dict that receives tracing statistics (paths run, Z3 queries)."""
+    if properties is None:
+        properties = model_cls.all_properties()
     vs = model_cls.variables()
     oracle = None
     if simplify:
@@ -476,7 +498,7 @@ def to_jani(model_cls, properties=None, simplify=False, stats=None):
                       for k, v in vs.items()]
                      + [r.jani_decl(k) for k, r in model_cls.rewards().items()],
         "properties": [{"name": n, "expression": e}
-                       for n, e in (properties or {}).items()],
+                       for n, e in properties.items()],
         "automata": [{"name": "main", "locations": [{"name": "l"}],
                       "initial-locations": ["l"], "edges": edges}],
         "system": {"elements": [{"automaton": "main"}]},
