@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jambi"
+version = "0.1.0"
+description = "Write probabilistic models (MDPs) as plain Python and compile them to JANI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Your Name" }]
+keywords = ["probabilistic model checking", "JANI", "MDP", "Storm", "formal verification"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Intended Audience :: Science/Research",
+]
+dependencies = []
+
+[project.optional-dependencies]
+z3 = ["z3-solver"]
+storm = ["stormpy"]
+test = ["pytest", "z3-solver"]
+all = ["z3-solver", "stormpy"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
